@@ -1,8 +1,10 @@
 package dev.lockbox.ui;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.server.VaadinSession;
 import dev.lockbox.i18n.LocalePreference;
@@ -15,12 +17,8 @@ class LanguageSwitcher extends HorizontalLayout {
     LanguageSwitcher() {
         setSpacing(false);
         setPadding(false);
-        getStyle()
-                .set("position", "fixed")
-                .set("top", "16px")
-                .set("right", "16px")
-                .set("gap", "4px")
-                .set("z-index", "10");
+        setAlignItems(Alignment.CENTER);
+        getStyle().set("gap", "4px");
 
         add(languageButton(LockboxI18NProvider.ENGLISH), languageButton(LockboxI18NProvider.RUSSIAN));
     }
@@ -38,6 +36,16 @@ class LanguageSwitcher extends HorizontalLayout {
         }
         button.addClickListener(event -> switchTo(locale));
         return button;
+    }
+
+    static Component pinnedToCorner() {
+        Div corner = new Div(new LanguageSwitcher());
+        corner.getStyle()
+                .set("position", "fixed")
+                .set("top", "16px")
+                .set("right", "16px")
+                .set("z-index", "10");
+        return corner;
     }
 
     private Locale currentLocale() {

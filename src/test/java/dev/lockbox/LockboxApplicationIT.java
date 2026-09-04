@@ -89,8 +89,8 @@ class LockboxApplicationIT {
     @Test
     @DisplayName("English stays English even when the server runs with another system language")
     void translatesWithTheRequestedLanguage() {
-        assertThat(i18NProvider.getTranslation("home.signOut", LockboxI18NProvider.ENGLISH)).isEqualTo("Sign out");
-        assertThat(i18NProvider.getTranslation("home.signOut", LockboxI18NProvider.RUSSIAN)).isEqualTo("Выйти");
+        assertThat(i18NProvider.getTranslation("common.signOut", LockboxI18NProvider.ENGLISH)).isEqualTo("Sign out");
+        assertThat(i18NProvider.getTranslation("common.signOut", LockboxI18NProvider.RUSSIAN)).isEqualTo("Выйти");
     }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {

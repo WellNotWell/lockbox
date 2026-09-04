@@ -27,7 +27,7 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver, Ha
         loginForm.setForgotPasswordButtonVisible(false);
         loginForm.setI18n(formMessages());
 
-        add(new LanguageSwitcher(),
+        add(LanguageSwitcher.pinnedToCorner(),
                 new H1(Translations.of("app.name")),
                 new Paragraph(Translations.of("login.subtitle")),
                 loginForm,

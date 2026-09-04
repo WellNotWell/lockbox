@@ -22,17 +22,17 @@ class LockboxI18NProviderTest {
     @Test
     @DisplayName("The same key gives different texts per language")
     void translatesPerLanguage() {
-        assertThat(provider.getTranslation("home.signOut", LockboxI18NProvider.ENGLISH)).isEqualTo("Sign out");
-        assertThat(provider.getTranslation("home.signOut", LockboxI18NProvider.RUSSIAN)).isEqualTo("Выйти");
+        assertThat(provider.getTranslation("common.signOut", LockboxI18NProvider.ENGLISH)).isEqualTo("Sign out");
+        assertThat(provider.getTranslation("common.signOut", LockboxI18NProvider.RUSSIAN)).isEqualTo("Выйти");
     }
 
     @Test
     @DisplayName("Parameters are substituted in both languages")
     void substitutesParameters() {
-        assertThat(provider.getTranslation("home.signedInAs", LockboxI18NProvider.ENGLISH, "lesya"))
-                .isEqualTo("Signed in as lesya");
-        assertThat(provider.getTranslation("home.signedInAs", LockboxI18NProvider.RUSSIAN, "lesya"))
-                .isEqualTo("Вы вошли как lesya");
+        assertThat(provider.getTranslation("register.error.passwordTooShort", LockboxI18NProvider.ENGLISH, 12))
+                .isEqualTo("Use at least 12 characters");
+        assertThat(provider.getTranslation("register.error.passwordTooShort", LockboxI18NProvider.RUSSIAN, 12))
+                .isEqualTo("Минимум 12 символов");
     }
 
     @Test
@@ -51,7 +51,7 @@ class LockboxI18NProviderTest {
     @Test
     @DisplayName("Missing locale is treated as English")
     void treatsMissingLocaleAsEnglish() {
-        assertThat(provider.getTranslation("home.signOut", (Locale) null)).isEqualTo("Sign out");
+        assertThat(provider.getTranslation("common.signOut", (Locale) null)).isEqualTo("Sign out");
     }
 
     private ResourceBundleMessageSource messageSource() {

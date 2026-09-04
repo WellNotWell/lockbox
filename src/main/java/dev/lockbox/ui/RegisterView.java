@@ -5,8 +5,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Paragraph;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.shared.HasValidationProperties;
 import com.vaadin.flow.component.textfield.PasswordField;
@@ -49,7 +47,7 @@ public class RegisterView extends VerticalLayout implements HasDynamicTitle {
         submit.setWidth(FIELD_WIDTH);
         submit.addClickShortcut(Key.ENTER);
 
-        add(new LanguageSwitcher(),
+        add(LanguageSwitcher.pinnedToCorner(),
                 new H1(Translations.of("app.name")),
                 new Paragraph(Translations.of("register.warning")),
                 username, password, confirmation, submit,
@@ -68,7 +66,7 @@ public class RegisterView extends VerticalLayout implements HasDynamicTitle {
         }
         try {
             registrationService.register(username.getValue().trim(), password.getValue());
-            showSuccess();
+            Notifications.success(Translations.of("register.success"));
             getUI().ifPresent(ui -> ui.navigate(LoginView.class));
         } catch (UserAlreadyExistsException e) {
             markInvalid(username, "register.error.usernameTaken");
@@ -94,12 +92,6 @@ public class RegisterView extends VerticalLayout implements HasDynamicTitle {
         username.setInvalid(false);
         password.setInvalid(false);
         confirmation.setInvalid(false);
-    }
-
-    private void showSuccess() {
-        Notification notification = Notification.show(Translations.of("register.success"),
-                4000, Notification.Position.TOP_CENTER);
-        notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
     }
 
     @Override
