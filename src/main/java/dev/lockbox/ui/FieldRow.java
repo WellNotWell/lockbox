@@ -8,4 +8,8 @@ interface FieldRow {
     HorizontalLayout layout();
 
     NewField toField();
+
+    void showError(String messageKey);
+
+    void clearError();
 }

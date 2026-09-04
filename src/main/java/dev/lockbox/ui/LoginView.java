@@ -1,7 +1,5 @@
 package dev.lockbox.ui;
 
-import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.login.LoginForm;
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -26,12 +24,12 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver, Ha
         loginForm.setAction("login");
         loginForm.setForgotPasswordButtonVisible(false);
         loginForm.setI18n(formMessages());
+        loginForm.getStyle().set("width", "100%");
 
-        add(LanguageSwitcher.pinnedToCorner(),
-                new H1(Translations.of("app.name")),
-                new Paragraph(Translations.of("login.subtitle")),
-                loginForm,
-                new RouterLink(Translations.of("login.toRegister"), RegisterView.class));
+        AuthPanel panel = new AuthPanel("login.subtitle", loginForm);
+        panel.addFooterLink(new RouterLink(Translations.of("login.toRegister"), RegisterView.class));
+
+        add(LanguageSwitcher.pinnedToCorner(), panel);
     }
 
     private LoginI18n formMessages() {

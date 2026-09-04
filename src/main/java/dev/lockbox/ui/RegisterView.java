@@ -3,8 +3,6 @@ package dev.lockbox.ui;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.shared.HasValidationProperties;
 import com.vaadin.flow.component.textfield.PasswordField;
@@ -20,8 +18,6 @@ import dev.lockbox.user.UserAlreadyExistsException;
 @Route("register")
 @AnonymousAllowed
 public class RegisterView extends VerticalLayout implements HasDynamicTitle {
-
-    private static final String FIELD_WIDTH = "320px";
 
     private final TextField username = new TextField(Translations.of("register.username"));
     private final PasswordField password = new PasswordField(Translations.of("register.password"));
@@ -44,14 +40,13 @@ public class RegisterView extends VerticalLayout implements HasDynamicTitle {
 
         Button submit = new Button(Translations.of("register.submit"), event -> register());
         submit.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        submit.setWidth(FIELD_WIDTH);
+        submit.setWidthFull();
         submit.addClickShortcut(Key.ENTER);
 
-        add(LanguageSwitcher.pinnedToCorner(),
-                new H1(Translations.of("app.name")),
-                new Paragraph(Translations.of("register.warning")),
-                username, password, confirmation, submit,
-                new RouterLink(Translations.of("register.toLogin"), LoginView.class));
+        AuthPanel panel = new AuthPanel("register.warning", username, password, confirmation, submit);
+        panel.addFooterLink(new RouterLink(Translations.of("register.toLogin"), LoginView.class));
+
+        add(LanguageSwitcher.pinnedToCorner(), panel);
     }
 
     void register() {
@@ -74,7 +69,7 @@ public class RegisterView extends VerticalLayout implements HasDynamicTitle {
     }
 
     private void prepare(com.vaadin.flow.component.textfield.TextFieldBase<?, String> field) {
-        field.setWidth(FIELD_WIDTH);
+        field.setWidthFull();
         field.setRequiredIndicatorVisible(true);
         field.setValueChangeMode(ValueChangeMode.EAGER);
         field.addValueChangeListener(event -> field.setInvalid(false));

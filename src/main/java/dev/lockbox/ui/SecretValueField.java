@@ -57,7 +57,7 @@ class SecretValueField extends HorizontalLayout {
         masked.setVisible(isSecret);
         plain.setValue(current);
         masked.setValue(current);
-        toggle.setIcon(new Icon(isSecret ? VaadinIcon.LOCK : VaadinIcon.EYE_SLASH));
+        toggle.setIcon(new Icon(isSecret ? VaadinIcon.EYE : VaadinIcon.EYE_SLASH));
         toggle.setTooltipText(Translations.of(isSecret ? "entry.field.isSecret" : "entry.field.markSecret"));
         expand(isSecret ? masked : plain);
     }

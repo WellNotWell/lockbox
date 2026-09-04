@@ -33,7 +33,6 @@ class FileValueField extends HorizontalLayout {
     private final HorizontalLayout chosen = new HorizontalLayout();
     private final Span name = new Span();
     private final Span size = new Span();
-    private final Button reveal = new Button(new Icon(VaadinIcon.EYE));
 
     private Long fieldId;
     private FileInfo info;
@@ -60,15 +59,7 @@ class FileValueField extends HorizontalLayout {
         size.getStyle().set("color", "var(--vaadin-text-color-secondary)")
                 .set("font-size", "var(--aura-font-size-s)").set("white-space", "nowrap");
 
-        reveal.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        reveal.setTooltipText(Translations.of("entry.file.reveal"));
-        reveal.addClickListener(event -> {
-            revealed = !revealed;
-            render();
-        });
-        reveal.setVisible(false);
-
-        chosen.add(name, size, reveal);
+        chosen.add(name, size);
         add(upload, chosen);
         expand(upload);
     }
@@ -135,15 +126,16 @@ class FileValueField extends HorizontalLayout {
         if (!hasFile()) {
             return;
         }
-        boolean hidden = secret && !revealed;
-        reveal.setVisible(secret);
-        reveal.setIcon(new Icon(hidden ? VaadinIcon.EYE : VaadinIcon.EYE_SLASH));
-
         chosen.removeAll();
-        if (hidden) {
+        if (secret && !revealed) {
             Span masked = new Span(MASK);
-            masked.getStyle().set("letter-spacing", "2px");
-            chosen.add(masked, reveal);
+            masked.getStyle().set("letter-spacing", "2px").set("cursor", "pointer");
+            masked.getElement().setAttribute("title", Translations.of("entry.file.reveal"));
+            masked.getElement().addEventListener("click", event -> {
+                revealed = true;
+                render();
+            });
+            chosen.add(masked);
             return;
         }
 
@@ -156,7 +148,6 @@ class FileValueField extends HorizontalLayout {
             preview.setTooltipText(Translations.of("entry.file.preview"));
             chosen.add(preview);
         }
-        chosen.add(reveal);
     }
 
     private com.vaadin.flow.component.Component nameComponent() {

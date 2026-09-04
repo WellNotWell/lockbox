@@ -23,22 +23,53 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("Missing title is reported")
     void rejectsMissingTitle() {
-        assertThat(EntryFormValidator.validate("   ", List.of(HOST))).isEqualTo(EntryFormValidator.TITLE_EMPTY);
+        assertThat(EntryFormValidator.validate("   ", List.of(HOST)).messageKey())
+                .isEqualTo(EntryFormValidator.TITLE_EMPTY);
     }
 
     @Test
     @DisplayName("Entry without any filled field is reported")
     void rejectsEmptyEntry() {
-        assertThat(EntryFormValidator.validate("Prod database", List.of(EMPTY)))
+        assertThat(EntryFormValidator.validate("Prod database", List.of(EMPTY)).messageKey())
                 .isEqualTo(EntryFormValidator.NO_FIELDS);
-        assertThat(EntryFormValidator.validate("Prod database", List.of()))
+        assertThat(EntryFormValidator.validate("Prod database", List.of()).messageKey())
                 .isEqualTo(EntryFormValidator.NO_FIELDS);
+    }
+
+    @Test
+    @DisplayName("The error points at the row that caused it, not at the title")
+    void pointsAtTheOffendingRow() {
+        NewField named = NewField.uploadedFile("", null, false);
+        EntryFormValidator.Problem problem = EntryFormValidator.validate("Documents",
+                List.of(HOST, NewField.text("", "secret", true), named));
+
+        assertThat(problem.messageKey()).isEqualTo(EntryFormValidator.LABEL_EMPTY);
+        assertThat(problem.rowIndex()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("A file row without a file points at its own row")
+    void pointsAtTheFileRow() {
+        EntryFormValidator.Problem problem = EntryFormValidator.validate("Documents",
+                List.of(HOST, NewField.uploadedFile("Passport", null, false)));
+
+        assertThat(problem.messageKey()).isEqualTo(EntryFormValidator.FILE_MISSING);
+        assertThat(problem.rowIndex()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Title problems are reported on the title")
+    void pointsAtTheTitle() {
+        assertThat(EntryFormValidator.validate("   ", List.of(HOST)).rowIndex())
+                .isEqualTo(EntryFormValidator.TITLE);
+        assertThat(EntryFormValidator.validate("Prod database", List.of(EMPTY)).rowIndex())
+                .isEqualTo(EntryFormValidator.TITLE);
     }
 
     @Test
     @DisplayName("A value without a label is reported")
     void rejectsValueWithoutLabel() {
-        assertThat(EntryFormValidator.validate("Prod database", List.of(NewField.text("", "secret", true))))
+        assertThat(EntryFormValidator.validate("Prod database", List.of(NewField.text("", "secret", true))).messageKey())
                 .isEqualTo(EntryFormValidator.LABEL_EMPTY);
     }
 
@@ -63,7 +94,7 @@ class EntryFormValidatorTest {
     void rejectsNamedFileRowWithoutFile() {
         NewField named = NewField.uploadedFile("Passport", null, false);
 
-        assertThat(EntryFormValidator.validate("Documents", List.of(named)))
+        assertThat(EntryFormValidator.validate("Documents", List.of(named)).messageKey())
                 .isEqualTo(EntryFormValidator.FILE_MISSING);
     }
 

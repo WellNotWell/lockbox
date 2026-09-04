@@ -42,6 +42,17 @@ class TextFieldRow extends HorizontalLayout implements FieldRow {
     }
 
     @Override
+    public void showError(String messageKey) {
+        label.setErrorMessage(Translations.of(messageKey));
+        label.setInvalid(true);
+    }
+
+    @Override
+    public void clearError() {
+        label.setInvalid(false);
+    }
+
+    @Override
     public NewField toField() {
         return NewField.text(label.getValue(), value.getValue(), value.isSecret());
     }

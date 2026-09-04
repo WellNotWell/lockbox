@@ -52,7 +52,7 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
 
     private void setSecret(boolean isSecret) {
         secret = isSecret;
-        toggle.setIcon(new Icon(isSecret ? VaadinIcon.LOCK : VaadinIcon.EYE_SLASH));
+        toggle.setIcon(new Icon(isSecret ? VaadinIcon.EYE : VaadinIcon.EYE_SLASH));
         toggle.setTooltipText(Translations.of(isSecret ? "entry.field.isSecret" : "entry.field.markSecret"));
         value.setSecret(isSecret);
     }
@@ -60,6 +60,17 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
     @Override
     public HorizontalLayout layout() {
         return this;
+    }
+
+    @Override
+    public void showError(String messageKey) {
+        label.setErrorMessage(Translations.of(messageKey));
+        label.setInvalid(true);
+    }
+
+    @Override
+    public void clearError() {
+        label.setInvalid(false);
     }
 
     @Override

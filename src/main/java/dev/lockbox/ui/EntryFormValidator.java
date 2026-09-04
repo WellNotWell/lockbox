@@ -11,22 +11,32 @@ final class EntryFormValidator {
     static final String LABEL_EMPTY = "entry.error.labelEmpty";
     static final String FILE_MISSING = "entry.error.fileMissing";
 
+    static final int TITLE = -1;
+
     private EntryFormValidator() {
     }
 
-    static String validate(String title, List<NewField> fields) {
+    record Problem(String messageKey, int rowIndex) {
+    }
+
+    static Problem validate(String title, List<NewField> fields) {
         if (title == null || title.isBlank()) {
-            return TITLE_EMPTY;
+            return new Problem(TITLE_EMPTY, TITLE);
         }
-        List<NewField> filled = usable(fields);
-        if (filled.isEmpty()) {
-            return NO_FIELDS;
+        if (usable(fields).isEmpty()) {
+            return new Problem(NO_FIELDS, TITLE);
         }
-        if (filled.stream().anyMatch(field -> field.label() == null || field.label().isBlank())) {
-            return LABEL_EMPTY;
-        }
-        if (filled.stream().anyMatch(field -> field.isFile() && !field.hasContent())) {
-            return FILE_MISSING;
+        for (int index = 0; index < fields.size(); index++) {
+            NewField field = fields.get(index);
+            if (field.isEmpty()) {
+                continue;
+            }
+            if (field.label() == null || field.label().isBlank()) {
+                return new Problem(LABEL_EMPTY, index);
+            }
+            if (field.isFile() && !field.hasContent()) {
+                return new Problem(FILE_MISSING, index);
+            }
         }
         return null;
     }

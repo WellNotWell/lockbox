@@ -118,12 +118,17 @@ class EntryDialog extends Dialog {
 
     private void save() {
         title.setInvalid(false);
+        fieldRows.forEach(FieldRow::clearError);
         List<NewField> fields = fieldRows.stream().map(FieldRow::toField).toList();
 
-        String error = EntryFormValidator.validate(title.getValue(), fields);
-        if (error != null) {
-            title.setErrorMessage(Translations.of(error));
-            title.setInvalid(true);
+        EntryFormValidator.Problem problem = EntryFormValidator.validate(title.getValue(), fields);
+        if (problem != null) {
+            if (problem.rowIndex() == EntryFormValidator.TITLE) {
+                title.setErrorMessage(Translations.of(problem.messageKey()));
+                title.setInvalid(true);
+            } else {
+                fieldRows.get(problem.rowIndex()).showError(problem.messageKey());
+            }
             return;
         }
         onSave.accept(new EntryDraft(title.getValue().trim(), EntryFormValidator.usable(fields)));
