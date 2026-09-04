@@ -12,12 +12,10 @@ import com.vaadin.flow.component.textfield.TextField;
 import dev.lockbox.vault.DecryptedEntry;
 import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.NewField;
-import dev.lockbox.vault.StoredFile;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 class EntryDialog extends Dialog {
 
@@ -26,13 +24,13 @@ class EntryDialog extends Dialog {
     private final List<FieldRow> fieldRows = new ArrayList<>();
 
     private final long maxFileSize;
-    private final Function<Long, StoredFile> opener;
+    private final FileAccess access;
     private final Consumer<EntryDraft> onSave;
 
-    EntryDialog(DecryptedEntry existing, long maxFileSize, Function<Long, StoredFile> opener,
+    EntryDialog(DecryptedEntry existing, long maxFileSize, FileAccess access,
                 Consumer<EntryDraft> onSave, Runnable onDelete) {
         this.maxFileSize = maxFileSize;
-        this.opener = opener;
+        this.access = access;
         this.onSave = onSave;
 
         setHeaderTitle(existing == null
@@ -103,7 +101,7 @@ class EntryDialog extends Dialog {
     }
 
     private void addFileRow(DecryptedField field) {
-        register(new FileFieldRow(field, maxFileSize, opener, this::remove));
+        register(new FileFieldRow(field, maxFileSize, access, this::remove));
     }
 
     private void register(FieldRow row) {

@@ -1,12 +1,12 @@
 package dev.lockbox.vault;
 
-public record NewField(FieldKind kind, String label, boolean secret, String value, StoredFile file, Long keptId) {
+public record NewField(FieldKind kind, String label, boolean secret, String value, StagedFile file, Long keptId) {
 
     public static NewField text(String label, String value, boolean secret) {
         return new NewField(FieldKind.TEXT, label, secret, value, null, null);
     }
 
-    public static NewField uploadedFile(String label, StoredFile file, boolean secret) {
+    public static NewField stagedFile(String label, StagedFile file, boolean secret) {
         return new NewField(FieldKind.FILE, label, secret, null, file, null);
     }
 

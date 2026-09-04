@@ -1,65 +1,69 @@
 package dev.lockbox.ui;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.IFrame;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.UploadI18N;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.server.streams.DownloadHandler;
-import com.vaadin.flow.server.streams.DownloadResponse;
+import com.vaadin.flow.component.upload.UploadI18N;
 import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.FileInfo;
-import dev.lockbox.vault.StoredFile;
+import dev.lockbox.vault.StagedFile;
+import dev.lockbox.vault.VaultService;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.util.function.Function;
+import javax.crypto.SecretKey;
 
 class FileValueField extends HorizontalLayout {
 
     private static final String MASK = "••••••••••";
 
     private final long maxFileSize;
-    private final Function<Long, StoredFile> opener;
+    private final FileAccess access;
 
     private final Upload upload;
     private final HorizontalLayout chosen = new HorizontalLayout();
-    private final Span name = new Span();
     private final Span size = new Span();
 
     private Long fieldId;
     private FileInfo info;
-    private StoredFile uploaded;
+    private StagedFile staged;
+    private VaultService.StagingSession activeUpload;
+    private SecretKey fileKey;
+    private String stagingKey;
     private boolean secret;
     private boolean revealed;
 
-    FileValueField(long maxFileSize, Function<Long, StoredFile> opener) {
+    FileValueField(long maxFileSize, FileAccess access) {
         this.maxFileSize = maxFileSize;
-        this.opener = opener;
+        this.access = access;
 
         setSpacing(false);
         setPadding(false);
         setWidthFull();
         setAlignItems(Alignment.CENTER);
+        getStyle().set("min-width", "0");
 
         upload = newUpload();
         chosen.setSpacing(true);
         chosen.setPadding(false);
         chosen.setAlignItems(Alignment.CENTER);
         chosen.setVisible(false);
-        chosen.getStyle().set("padding-inline-start", "var(--vaadin-gap-s)");
+        chosen.setWidthFull();
+        chosen.getStyle().set("padding-inline-start", "var(--vaadin-gap-s)")
+                .set("min-width", "0").set("overflow", "hidden");
 
         size.getStyle().set("color", "var(--vaadin-text-color-secondary)")
-                .set("font-size", "var(--aura-font-size-s)").set("white-space", "nowrap");
+                .set("font-size", "var(--aura-font-size-s)").set("white-space", "nowrap")
+                .set("flex", "0 0 auto");
 
-        chosen.add(name, size);
         add(upload, chosen);
         expand(upload);
     }
@@ -79,33 +83,49 @@ class FileValueField extends HorizontalLayout {
     }
 
     boolean hasFile() {
-        return uploaded != null || fieldId != null;
+        return staged != null || fieldId != null;
     }
 
-    StoredFile uploadedFile() {
-        return uploaded;
+    StagedFile stagedFile() {
+        return staged;
     }
 
     Long keptId() {
-        return uploaded == null ? fieldId : null;
+        return staged == null ? fieldId : null;
     }
 
     private Upload newUpload() {
-        MemoryBuffer buffer = new MemoryBuffer();
-        Upload component = new Upload(buffer);
+        Upload component = new Upload();
         component.setMaxFiles(1);
         component.setMaxFileSize((int) maxFileSize);
         component.setWidthFull();
         component.setI18n(uploadTranslations());
+        component.setReceiver((fileName, mimeType) -> {
+            stagingKey = access.newStagingKey();
+            activeUpload = access.openStaging(stagingKey);
+            fileKey = activeUpload.fileKey();
+            return activeUpload.upload().stream();
+        });
         component.addSucceededListener(event -> {
-            uploaded = new StoredFile(event.getFileName(), event.getMIMEType(),
-                    ((ByteArrayOutputStream) buffer.getFileData().getOutputBuffer()).toByteArray());
+            staged = new StagedFile(stagingKey, event.getFileName(), event.getMIMEType(),
+                    event.getContentLength(), fileKey);
+            activeUpload = null;
             component.clearFileList();
             component.setVisible(false);
             chosen.setVisible(true);
             render();
         });
+        component.addFailedListener(event -> discardUpload());
+        component.addFileRejectedListener(event -> discardUpload());
         return component;
+    }
+
+    private void discardUpload() {
+        if (activeUpload != null) {
+            activeUpload.upload().abort();
+            activeUpload = null;
+        }
+        stagingKey = null;
     }
 
     private UploadI18N uploadTranslations() {
@@ -139,37 +159,60 @@ class FileValueField extends HorizontalLayout {
             return;
         }
 
-        chosen.add(nameComponent());
+        Component fileName = nameComponent();
+        chosen.add(fileName);
         size.setText(Sizes.readable(currentSize()));
         chosen.add(size);
-        if (isImage()) {
-            Button preview = new Button(new Icon(VaadinIcon.PICTURE), event -> preview());
+        if (isPreviewable()) {
+            Button preview = new Button(new Icon(isImage() ? VaadinIcon.PICTURE : VaadinIcon.FILE_TEXT),
+                    event -> preview());
             preview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             preview.setTooltipText(Translations.of("entry.file.preview"));
+            preview.getStyle().set("flex", "0 0 auto");
             chosen.add(preview);
         }
+        chosen.expand(fileName);
     }
 
-    private com.vaadin.flow.component.Component nameComponent() {
-        if (uploaded != null) {
-            name.setText(uploaded.fileName());
-            return name;
+    private void shorten(Component component, String fullName) {
+        component.getElement().getStyle()
+                .set("overflow", "hidden").set("text-overflow", "ellipsis")
+                .set("white-space", "nowrap").set("min-width", "0").set("display", "block");
+        component.getElement().setAttribute("title", fullName);
+    }
+
+    private Component nameComponent() {
+        if (staged != null) {
+            Span plain = new Span(staged.fileName());
+            shorten(plain, staged.fileName());
+            return plain;
         }
-        Anchor download = new Anchor(downloadHandler(false), info.fileName());
+        Anchor download = new Anchor(access.download(fieldId, false), info.fileName());
         download.getElement().setAttribute("download", true);
+        shorten(download, info.fileName());
         return download;
     }
 
     private void preview() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(currentName());
-        dialog.setWidth("640px");
+        dialog.setWidth(isImage() ? "640px" : "860px");
 
-        Image image = uploaded != null
-                ? new Image(uploaded.content(), uploaded.fileName())
-                : new Image(downloadHandler(true), info.fileName());
-        image.setWidthFull();
-        dialog.add(image);
+        DownloadHandler handler = staged != null
+                ? access.previewStaged(staged)
+                : access.download(fieldId, true);
+
+        if (isImage()) {
+            Image image = new Image(handler, currentName());
+            image.setWidthFull();
+            dialog.add(image);
+        } else {
+            IFrame frame = new IFrame(handler);
+            frame.setWidthFull();
+            frame.setHeight("70vh");
+            frame.getStyle().set("border", "0");
+            dialog.add(frame);
+        }
 
         Button close = new Button(Translations.of("common.close"), event -> dialog.close());
         close.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -177,25 +220,24 @@ class FileValueField extends HorizontalLayout {
         dialog.open();
     }
 
-    private DownloadHandler downloadHandler(boolean inline) {
-        var handler = DownloadHandler.fromInputStream(event -> {
-            StoredFile file = opener.apply(fieldId);
-            return new DownloadResponse(new ByteArrayInputStream(file.content()), file.fileName(),
-                    file.contentType(), file.content().length);
-        });
-        return inline ? handler.inline() : handler;
+    private String currentName() {
+        return staged != null ? staged.fileName() : info.fileName();
     }
 
-    private String currentName() {
-        return uploaded != null ? uploaded.fileName() : info.fileName();
+    private boolean isPreviewable() {
+        return isImage() || "application/pdf".equals(contentType());
+    }
+
+    private String contentType() {
+        return staged != null ? staged.contentType() : info.contentType();
     }
 
     private long currentSize() {
-        return uploaded != null ? uploaded.content().length : info.sizeBytes();
+        return staged != null ? staged.sizeBytes() : info.sizeBytes();
     }
 
     private boolean isImage() {
-        String type = uploaded != null ? uploaded.contentType() : info.contentType();
+        String type = contentType();
         return type != null && type.startsWith("image/");
     }
 }

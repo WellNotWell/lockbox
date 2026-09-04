@@ -41,7 +41,8 @@ storage:
   access-key: ${STORAGE_ACCESS_KEY:lockbox}
   secret-key: ${STORAGE_SECRET_KEY:lockbox-secret}
   bucket: ${STORAGE_BUCKET:lockbox}
-  max-attachment-size: 25MB
+  max-attachment-size: 50MB
+  staging-ttl: PT6H
 
 lockbox:
   crypto:

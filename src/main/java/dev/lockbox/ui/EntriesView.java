@@ -9,12 +9,15 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 import dev.lockbox.security.CurrentUser;
+import com.vaadin.flow.server.streams.DownloadHandler;
 import dev.lockbox.vault.DecryptedEntry;
+import dev.lockbox.vault.FileInfo;
+import dev.lockbox.vault.StagedFile;
 import dev.lockbox.vault.Entry;
-import dev.lockbox.vault.StoredFile;
 import dev.lockbox.vault.VaultService;
 import jakarta.annotation.security.PermitAll;
 
+import java.io.OutputStream;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -79,7 +82,7 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
     private void openDialog(DecryptedEntry existing) {
         EntryDialog dialog = new EntryDialog(existing,
                 vaultService.maxFileSizeBytes(),
-                fieldId -> openFile(existing, fieldId),
+                fileAccess(existing),
                 draft -> {
                     if (existing == null) {
                         vaultService.create(currentUser.require(), currentUser.masterKey(),
@@ -100,8 +103,53 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         dialog.open();
     }
 
-    private StoredFile openFile(DecryptedEntry existing, Long fieldId) {
-        return vaultService.openFile(currentUser.require(), currentUser.masterKey(), existing.id(), fieldId);
+    private FileAccess fileAccess(DecryptedEntry existing) {
+        return new FileAccess() {
+
+            @Override
+            public String newStagingKey() {
+                return vaultService.newStagingKey(currentUser.require());
+            }
+
+            @Override
+            public VaultService.StagingSession openStaging(String stagingKey) {
+                return vaultService.openStaging(stagingKey);
+            }
+
+            @Override
+            public DownloadHandler previewStaged(StagedFile staged) {
+                return event -> {
+                    event.inline(staged.fileName());
+                    if (staged.contentType() != null) {
+                        event.setContentType(staged.contentType());
+                    }
+                    event.setContentLength(staged.sizeBytes());
+                    try (OutputStream out = event.getOutputStream()) {
+                        vaultService.writeStagedFile(staged.stagingKey(), staged.fileKey(), out);
+                    }
+                };
+            }
+
+            @Override
+            public DownloadHandler download(Long fieldId, boolean inline) {
+                return event -> {
+                    FileInfo info = vaultService.fileInfo(currentUser.require(), existing.id(), fieldId);
+                    if (inline) {
+                        event.inline(info.fileName());
+                    } else {
+                        event.setFileName(info.fileName());
+                    }
+                    if (info.contentType() != null) {
+                        event.setContentType(info.contentType());
+                    }
+                    event.setContentLength(info.sizeBytes());
+                    try (OutputStream out = event.getOutputStream()) {
+                        vaultService.writeFile(currentUser.require(), currentUser.masterKey(),
+                                existing.id(), fieldId, out);
+                    }
+                };
+            }
+        };
     }
 
     @Override

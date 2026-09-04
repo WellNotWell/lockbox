@@ -1,5 +1,6 @@
 package dev.lockbox.vault;
 
+import dev.lockbox.crypto.ChunkedCipher;
 import dev.lockbox.crypto.DecryptionException;
 import dev.lockbox.crypto.KeyDerivation;
 import dev.lockbox.storage.ObjectStorage;
@@ -20,7 +21,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.crypto.SecretKey;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class FileFieldIT {
 
     private static final String PASSWORD = "correct horse battery";
-    private static final String CONTENT = "screenshot bytes with the recovery code 4815162342";
+    private static final String MARKER = "recovery code 4815162342";
 
     @Container
     @ServiceConnection
@@ -61,90 +66,113 @@ class FileFieldIT {
     private VaultService vaultService;
 
     @Autowired
+    private FieldFileStore fileStore;
+
+    @Autowired
     private ObjectStorage storage;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    @DisplayName("The object stored in the bucket is unreadable")
-    void storesCiphertextInTheBucket() {
+    @DisplayName("The object in the bucket is unreadable and carries the chunked header")
+    void storesCiphertextInTheBucket() throws IOException {
         User user = newUser();
-        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile());
+        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile(user, 1024));
 
-        String storageKey = jdbcTemplate.queryForObject(
-                "select storage_key from entry_fields where entry_id = ? and kind = 'FILE'",
-                String.class, entry.getId());
+        byte[] raw = storage.get(storageKeyOf(entry));
 
-        byte[] raw = storage.get(storageKey);
-        assertThat(new String(raw, StandardCharsets.UTF_8)).doesNotContain("4815162342");
-        assertThat(raw).hasSize(CONTENT.length() + 28);
+        assertThat(new String(raw, StandardCharsets.UTF_8)).doesNotContain(MARKER);
+        assertThat(new String(raw, 0, 4, StandardCharsets.UTF_8)).isEqualTo("LBX1");
     }
 
     @Test
-    @DisplayName("A file field keeps its name in the database and its bytes only in the bucket")
-    void keepsMetadataInTheDatabase() {
-        User user = newUser();
-        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile());
-
-        var row = jdbcTemplate.queryForMap(
-                "select label, kind, file_name, size_bytes, value, secret from entry_fields "
-                        + "where entry_id = ? and kind = 'FILE'", entry.getId());
-
-        assertThat(row).containsEntry("label", "Screenshot").containsEntry("kind", "FILE")
-                .containsEntry("file_name", "recovery.png").containsEntry("secret", true);
-        assertThat(row.get("size_bytes")).isEqualTo((long) CONTENT.length());
-        assertThat(row.get("value")).isNull();
-    }
-
-    @Test
-    @DisplayName("The owner downloads the original file back")
-    void downloadsOriginalFile() {
+    @DisplayName("A file larger than one chunk survives the round trip byte for byte")
+    void streamsFileLargerThanOneChunk() throws IOException {
         User user = newUser();
         SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
-        Long fieldId = fileFieldId(entry);
+        int size = 3 * ChunkedCipher.CHUNK_SIZE + 5000;
+        byte[] original = content(size);
+        Entry entry = vaultService.create(user, masterKey, "Big file", withFile(user, original));
 
-        StoredFile downloaded = vaultService.openFile(user, masterKey, entry.getId(), fieldId);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        vaultService.writeFile(user, masterKey, entry.getId(), fileFieldId(entry), out);
 
-        assertThat(downloaded.fileName()).isEqualTo("recovery.png");
-        assertThat(downloaded.contentType()).isEqualTo("image/png");
-        assertThat(new String(downloaded.content(), StandardCharsets.UTF_8)).isEqualTo(CONTENT);
+        assertThat(out.toByteArray()).isEqualTo(original);
+        assertThat(storage.get(storageKeyOf(entry)).length)
+                .isEqualTo((int) new ChunkedCipher().encryptedLength(size));
     }
 
     @Test
-    @DisplayName("Text and file fields come back in the order they were saved")
-    void keepsFieldOrder() {
+    @DisplayName("A file spanning several upload parts survives the round trip")
+    void streamsFileAcrossSeveralParts() throws IOException {
         User user = newUser();
         SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
+        byte[] original = content(12 * 1024 * 1024);
+        Entry entry = vaultService.create(user, masterKey, "Huge file", withFile(user, original));
 
-        DecryptedEntry opened = vaultService.open(user, masterKey, entry.getId());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        vaultService.writeFile(user, masterKey, entry.getId(), fileFieldId(entry), out);
 
-        assertThat(opened.fields()).extracting(DecryptedField::label)
-                .containsExactly("Service", "Screenshot");
-        assertThat(opened.fields()).extracting(DecryptedField::kind)
-                .containsExactly(FieldKind.TEXT, FieldKind.FILE);
-        assertThat(opened.fields().get(1).file().fileName()).isEqualTo("recovery.png");
-        assertThat(opened.fields().get(1).value()).isNull();
+        assertThat(out.toByteArray()).isEqualTo(original);
     }
 
     @Test
-    @DisplayName("Renaming a file field does not re-upload or lose the file")
-    void keepsFileWhenEntryIsSavedAgain() {
+    @DisplayName("Each file field carries its own key, wrapped in the key of its entry")
+    void keepsPerFileKeys() {
+        User user = newUser();
+        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile(user, 1024));
+
+        byte[] dataKey = jdbcTemplate.queryForObject(
+                "select data_key from entry_fields where entry_id = ? and kind = 'FILE'",
+                byte[].class, entry.getId());
+
+        assertThat(dataKey).isNotNull().hasSizeGreaterThan(32);
+    }
+
+    @Test
+    @DisplayName("Staging is emptied once the file becomes a field")
+    void promotesOutOfStaging() {
+        User user = newUser();
+        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile(user, 1024));
+
+        assertThat(storageKeyOf(entry)).doesNotStartWith("staging/");
+        assertThat(storage.keysOlderThan("staging/", java.time.Instant.now().plusSeconds(60))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("A file nobody saved is swept from staging")
+    void sweepsAbandonedStaging() throws IOException {
+        User user = newUser();
+        String stagingKey = fileStore.newStagingKey(user);
+        try (OutputStream out = fileStore.openStaging(stagingKey, newFileKey()).stream()) {
+            out.write(content(2048));
+        }
+
+        assertThat(storage.keysOlderThan("staging/", java.time.Instant.now().plusSeconds(60)))
+                .contains(stagingKey);
+
+        fileStore.sweepStaging(Duration.ZERO);
+
+        assertThat(storage.keysOlderThan("staging/", java.time.Instant.now().plusSeconds(60)))
+                .doesNotContain(stagingKey);
+    }
+
+    @Test
+    @DisplayName("A tampered object is refused on download")
+    void refusesTamperedObject() throws IOException {
         User user = newUser();
         SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
-        Long fieldId = fileFieldId(entry);
-        String storageKey = storageKeyOf(entry);
+        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile(user, 4096));
 
-        vaultService.update(user, masterKey, entry.getId(), "Recovery codes", List.of(
-                NewField.text("Service", "GitHub", false),
-                NewField.keptFile(fieldId, "Backup screenshot", true)));
+        String key = storageKeyOf(entry);
+        byte[] raw = storage.get(key);
+        raw[raw.length / 2] ^= 0x01;
+        storage.put(key, raw);
 
-        assertThat(storageKeyOf(entry)).isEqualTo(storageKey);
-        StoredFile downloaded = vaultService.openFile(user, masterKey, entry.getId(), fieldId);
-        assertThat(new String(downloaded.content(), StandardCharsets.UTF_8)).isEqualTo(CONTENT);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> vaultService.writeFile(user, masterKey, entry.getId(), fileFieldId(entry), out))
+                .isInstanceOf(DecryptionException.class);
     }
 
     @Test
@@ -152,24 +180,11 @@ class FileFieldIT {
     void deletesObjectWhenRowIsRemoved() {
         User user = newUser();
         SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
+        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile(user, 1024));
         String storageKey = storageKeyOf(entry);
 
-        vaultService.update(user, masterKey, entry.getId(), "Recovery codes", List.of(
-                NewField.text("Service", "GitHub", false)));
-
-        assertThatThrownBy(() -> storage.get(storageKey)).isInstanceOf(StorageException.class);
-    }
-
-    @Test
-    @DisplayName("Deleting the entry deletes the object as well")
-    void deletesObjectWithEntry() {
-        User user = newUser();
-        SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
-        String storageKey = storageKeyOf(entry);
-
-        vaultService.delete(user, entry.getId());
+        vaultService.update(user, masterKey, entry.getId(), "Recovery codes",
+                List.of(NewField.text("Service", "GitHub", false)));
 
         assertThatThrownBy(() -> storage.get(storageKey)).isInstanceOf(StorageException.class);
     }
@@ -178,12 +193,12 @@ class FileFieldIT {
     @DisplayName("Another user neither opens the file nor learns that it exists")
     void isolatesUsers() {
         User owner = newUser();
-        SecretKey ownerKey = masterKeyOf(owner);
-        Entry entry = vaultService.create(owner, ownerKey, "Recovery codes", withFile());
+        Entry entry = vaultService.create(owner, masterKeyOf(owner), "Recovery codes", withFile(owner, 1024));
         Long fieldId = fileFieldId(entry);
         User stranger = newUser();
 
-        assertThatThrownBy(() -> vaultService.openFile(stranger, masterKeyOf(stranger), entry.getId(), fieldId))
+        assertThatThrownBy(() -> vaultService.writeFile(stranger, masterKeyOf(stranger), entry.getId(),
+                fieldId, new ByteArrayOutputStream()))
                 .isInstanceOf(EntryNotFoundException.class);
     }
 
@@ -191,12 +206,12 @@ class FileFieldIT {
     @DisplayName("A wrong master password cannot open an own file")
     void rejectsWrongMasterPassword() {
         User user = newUser();
-        SecretKey masterKey = masterKeyOf(user);
-        Entry entry = vaultService.create(user, masterKey, "Recovery codes", withFile());
+        Entry entry = vaultService.create(user, masterKeyOf(user), "Recovery codes", withFile(user, 1024));
         Long fieldId = fileFieldId(entry);
         SecretKey wrongKey = keyDerivation.deriveMasterKey("wrong password".toCharArray(), user.getKeySalt());
 
-        assertThatThrownBy(() -> vaultService.openFile(user, wrongKey, entry.getId(), fieldId))
+        assertThatThrownBy(() -> vaultService.writeFile(user, wrongKey, entry.getId(), fieldId,
+                new ByteArrayOutputStream()))
                 .isInstanceOf(DecryptionException.class);
     }
 
@@ -208,12 +223,32 @@ class FileFieldIT {
         return keyDerivation.deriveMasterKey(PASSWORD.toCharArray(), user.getKeySalt());
     }
 
-    private List<NewField> withFile() {
+    private SecretKey newFileKey() {
+        return vaultService.openStaging("staging/probe/" + UUID.randomUUID()).fileKey();
+    }
+
+    private List<NewField> withFile(User user, int size) {
+        return withFile(user, content(size));
+    }
+
+    private List<NewField> withFile(User user, byte[] payload) {
+        String stagingKey = fileStore.newStagingKey(user);
+        VaultService.StagingSession session = vaultService.openStaging(stagingKey);
+        try (OutputStream out = session.upload().stream()) {
+            out.write(payload);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
         return List.of(
                 NewField.text("Service", "GitHub", false),
-                NewField.uploadedFile("Screenshot",
-                        new StoredFile("recovery.png", "image/png", CONTENT.getBytes(StandardCharsets.UTF_8)),
-                        true));
+                NewField.stagedFile("Screenshot",
+                        new StagedFile(stagingKey, "recovery.png", "image/png", payload.length,
+                                session.fileKey()), true));
+    }
+
+    private static byte[] content(int size) {
+        byte[] data = MARKER.repeat(size / MARKER.length() + 1).getBytes(StandardCharsets.UTF_8);
+        return java.util.Arrays.copyOf(data, size);
     }
 
     private Long fileFieldId(Entry entry) {

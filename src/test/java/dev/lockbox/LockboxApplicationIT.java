@@ -48,6 +48,15 @@ class LockboxApplicationIT {
     private I18NProvider i18NProvider;
 
     @Test
+    @DisplayName("Own pages may be framed by the app itself, but not by anyone else")
+    void allowsSameOriginFraming() throws Exception {
+        HttpResponse<String> response = get("/actuator/health");
+
+        assertThat(response.headers().firstValue("X-Frame-Options").orElseThrow())
+                .isEqualTo("SAMEORIGIN");
+    }
+
+    @Test
     @DisplayName("Anonymous visitor is sent to the sign in page")
     void redirectsAnonymousVisitorToLogin() throws Exception {
         HttpResponse<String> response = get("/");

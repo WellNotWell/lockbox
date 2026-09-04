@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.SecretKey;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +31,22 @@ public class VaultService {
 
     public long maxFileSizeBytes() {
         return fileStore.maxSizeBytes();
+    }
+
+    public String newStagingKey(User owner) {
+        return fileStore.newStagingKey(owner);
+    }
+
+    public StagingSession openStaging(String stagingKey) {
+        SecretKey fileKey = keyEnvelope.newDataKey();
+        return new StagingSession(fileStore.openStaging(stagingKey, fileKey), fileKey);
+    }
+
+    public record StagingSession(FieldFileStore.StagedUpload upload, SecretKey fileKey) {
+    }
+
+    public void writeStagedFile(String stagingKey, SecretKey fileKey, OutputStream target) throws IOException {
+        fileStore.readInto(stagingKey, fileKey, target);
     }
 
     @Transactional
@@ -80,14 +98,25 @@ public class VaultService {
     }
 
     @Transactional(readOnly = true)
-    public StoredFile openFile(User owner, SecretKey masterKey, Long entryId, Long fieldId) {
+    public FileInfo fileInfo(User owner, Long entryId, Long fieldId) {
+        EntryField field = requireFile(require(owner, entryId), fieldId);
+        return new FileInfo(field.getFileName(), field.getContentType(), field.getSizeBytes());
+    }
+
+    @Transactional(readOnly = true)
+    public void writeFile(User owner, SecretKey masterKey, Long entryId, Long fieldId, OutputStream target)
+            throws IOException {
         Entry entry = require(owner, entryId);
-        EntryField field = entry.getFields().stream()
+        EntryField field = requireFile(entry, fieldId);
+        SecretKey entryKey = keyEnvelope.unwrap(entry.getDataKey(), masterKey);
+        fileStore.readInto(field, keyEnvelope.unwrap(field.getDataKey(), entryKey), target);
+    }
+
+    private EntryField requireFile(Entry entry, Long fieldId) {
+        return entry.getFields().stream()
                 .filter(candidate -> candidate.isFile() && candidate.getId().equals(fieldId))
                 .findFirst()
                 .orElseThrow(() -> new FieldNotFoundException(fieldId));
-
-        return fileStore.read(field, keyEnvelope.unwrap(entry.getDataKey(), masterKey));
     }
 
     @Transactional
@@ -127,15 +156,16 @@ public class VaultService {
     }
 
     private EntryField uploadedField(User owner, NewField source, SecretKey dataKey) {
-        StoredFile file = source.file();
+        StagedFile file = source.file();
         EntryField field = new EntryField();
         field.setKind(FieldKind.FILE);
         field.setLabel(source.label().trim());
         field.setSecret(source.secret());
         field.setFileName(file.fileName());
         field.setContentType(file.contentType());
-        field.setSizeBytes((long) file.content().length);
-        field.setStorageKey(fileStore.store(owner, file, dataKey));
+        field.setSizeBytes(file.sizeBytes());
+        field.setStorageKey(fileStore.promote(owner, file.stagingKey()));
+        field.setDataKey(keyEnvelope.wrap(file.fileKey(), dataKey));
         return field;
     }
 

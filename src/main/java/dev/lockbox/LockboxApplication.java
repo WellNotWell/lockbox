@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
+@org.springframework.scheduling.annotation.EnableScheduling
 @StyleSheet(Aura.STYLESHEET)
 @StyleSheet("/styles/theme.css")
 public class LockboxApplication implements AppShellConfigurator {

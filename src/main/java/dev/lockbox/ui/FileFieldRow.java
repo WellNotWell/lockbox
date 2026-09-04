@@ -8,10 +8,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.NewField;
-import dev.lockbox.vault.StoredFile;
 
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 class FileFieldRow extends HorizontalLayout implements FieldRow {
 
@@ -21,9 +19,8 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
 
     private boolean secret;
 
-    FileFieldRow(DecryptedField field, long maxFileSize, Function<Long, StoredFile> opener,
-                 Consumer<FieldRow> onRemove) {
-        value = new FileValueField(maxFileSize, opener);
+    FileFieldRow(DecryptedField field, long maxFileSize, FileAccess access, Consumer<FieldRow> onRemove) {
+        value = new FileValueField(maxFileSize, access);
 
         setWidthFull();
         setSpacing(true);
@@ -32,13 +29,17 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
 
         label.setPlaceholder(Translations.of("entry.field.label"));
         label.setWidth("34%");
+        label.getStyle().set("flex", "0 0 34%");
         value.setWidthFull();
+        value.getStyle().set("min-width", "0");
 
         toggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        toggle.getStyle().set("flex", "0 0 auto");
         toggle.addClickListener(event -> setSecret(!secret));
 
         Button remove = new Button(Translations.of("common.remove"), event -> onRemove.accept(this));
         remove.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        remove.getStyle().set("flex", "0 0 auto");
 
         add(label, value, toggle, remove);
         expand(value);
@@ -78,6 +79,6 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
         Long keptId = value.keptId();
         return keptId != null
                 ? NewField.keptFile(keptId, label.getValue(), secret)
-                : NewField.uploadedFile(label.getValue(), value.uploadedFile(), secret);
+                : NewField.stagedFile(label.getValue(), value.stagedFile(), secret);
     }
 }

@@ -45,6 +45,9 @@ public class EntryField {
     @Column(name = "storage_key", length = 200)
     private String storageKey;
 
+    @Column(name = "data_key")
+    private byte[] dataKey;
+
     @Column(nullable = false)
     private boolean secret;
 
@@ -105,6 +108,14 @@ public class EntryField {
 
     public void setStorageKey(String storageKey) {
         this.storageKey = storageKey;
+    }
+
+    public byte[] getDataKey() {
+        return dataKey;
+    }
+
+    public void setDataKey(byte[] dataKey) {
+        this.dataKey = dataKey;
     }
 
     public String getLabel() {

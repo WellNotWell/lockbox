@@ -1,7 +1,7 @@
 package dev.lockbox.ui;
 
 import dev.lockbox.vault.NewField;
-import dev.lockbox.vault.StoredFile;
+import dev.lockbox.vault.StagedFile;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +39,7 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("The error points at the row that caused it, not at the title")
     void pointsAtTheOffendingRow() {
-        NewField named = NewField.uploadedFile("", null, false);
+        NewField named = NewField.stagedFile("", null, false);
         EntryFormValidator.Problem problem = EntryFormValidator.validate("Documents",
                 List.of(HOST, NewField.text("", "secret", true), named));
 
@@ -51,7 +51,7 @@ class EntryFormValidatorTest {
     @DisplayName("A file row without a file points at its own row")
     void pointsAtTheFileRow() {
         EntryFormValidator.Problem problem = EntryFormValidator.validate("Documents",
-                List.of(HOST, NewField.uploadedFile("Passport", null, false)));
+                List.of(HOST, NewField.stagedFile("Passport", null, false)));
 
         assertThat(problem.messageKey()).isEqualTo(EntryFormValidator.FILE_MISSING);
         assertThat(problem.rowIndex()).isEqualTo(1);
@@ -84,7 +84,7 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("A file row that nobody filled in is dropped like an empty text row")
     void dropsUntouchedFileRow() {
-        NewField untouched = NewField.uploadedFile("", null, false);
+        NewField untouched = NewField.stagedFile("", null, false);
 
         assertThat(EntryFormValidator.usable(List.of(HOST, untouched))).containsExactly(HOST);
     }
@@ -92,7 +92,7 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("A named file row without a chosen file is reported")
     void rejectsNamedFileRowWithoutFile() {
-        NewField named = NewField.uploadedFile("Passport", null, false);
+        NewField named = NewField.stagedFile("Passport", null, false);
 
         assertThat(EntryFormValidator.validate("Documents", List.of(named)).messageKey())
                 .isEqualTo(EntryFormValidator.FILE_MISSING);
@@ -101,8 +101,8 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("A file row with a chosen file passes")
     void acceptsFileRow() {
-        NewField file = NewField.uploadedFile("Passport",
-                new StoredFile("passport.png", "image/png", new byte[]{1, 2, 3}), true);
+        NewField file = NewField.stagedFile("Passport",
+                new StagedFile("staging/1/abc", "passport.png", "image/png", 3, null), true);
 
         assertThat(EntryFormValidator.validate("Documents", List.of(file))).isNull();
     }

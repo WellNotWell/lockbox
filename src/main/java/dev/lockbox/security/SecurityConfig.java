@@ -34,6 +34,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(requests -> requests.requestMatchers(HEALTH_ENDPOINT, ACCENT_STYLES).permitAll());
+        http.headers(headers -> headers.frameOptions(frames -> frames.sameOrigin()));
         return http.with(VaadinSecurityConfigurer.vaadin(),
                 configurer -> configurer.loginView(LoginView.class)).build();
     }
