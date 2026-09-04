@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -32,6 +34,11 @@ class LockboxApplicationIT {
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
+    @DynamicPropertySource
+    static void unreachableStorage(DynamicPropertyRegistry registry) {
+        registry.add("storage.endpoint", () -> "http://localhost:1");
+    }
+
     @LocalServerPort
     private int port;
 
@@ -46,6 +53,15 @@ class LockboxApplicationIT {
 
     @Autowired
     private I18NProvider i18NProvider;
+
+    @Test
+    @DisplayName("The application starts even when the file storage is unreachable")
+    void startsWithoutStorage() throws Exception {
+        HttpResponse<String> response = get("/actuator/health");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("UP");
+    }
 
     @Test
     @DisplayName("Own pages may be framed by the app itself, but not by anyone else")

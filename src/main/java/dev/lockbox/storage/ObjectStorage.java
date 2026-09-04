@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
@@ -14,7 +15,6 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.IOException;
@@ -44,8 +44,9 @@ public class ObjectStorage {
         } catch (NoSuchBucketException e) {
             log.info("Creating storage bucket {}", properties.bucket());
             client.createBucket(CreateBucketRequest.builder().bucket(properties.bucket()).build());
-        } catch (S3Exception e) {
-            log.warn("Cannot verify the storage bucket {}: {}", properties.bucket(), e.getMessage());
+        } catch (SdkException e) {
+            log.warn("Storage is not reachable at {}, file fields will fail until it is: {}",
+                    properties.endpoint(), e.getMessage());
         }
     }
 
@@ -57,7 +58,7 @@ public class ObjectStorage {
                             .contentType(ENCRYPTED_CONTENT_TYPE)
                             .build(),
                     RequestBody.fromBytes(content));
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot store object " + key, e);
         }
     }
@@ -66,7 +67,7 @@ public class ObjectStorage {
         try {
             return client.getObject(GetObjectRequest.builder()
                     .bucket(properties.bucket()).key(key).build());
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot read object " + key, e);
         }
     }
@@ -74,7 +75,7 @@ public class ObjectStorage {
     public MultipartUploadStream openForWriting(String key) {
         try {
             return new MultipartUploadStream(client, properties.bucket(), key, ENCRYPTED_CONTENT_TYPE);
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot start upload of object " + key, e);
         }
     }
@@ -83,7 +84,7 @@ public class ObjectStorage {
         try (InputStream source = client.getObject(GetObjectRequest.builder()
                 .bucket(properties.bucket()).key(key).build())) {
             source.transferTo(target);
-        } catch (S3Exception | IOException e) {
+        } catch (SdkException | IOException e) {
             throw new StorageException("Cannot read object " + key, e);
         }
     }
@@ -94,7 +95,7 @@ public class ObjectStorage {
                     .sourceBucket(properties.bucket()).sourceKey(sourceKey)
                     .destinationBucket(properties.bucket()).destinationKey(targetKey)
                     .build());
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot copy object " + sourceKey, e);
         }
     }
@@ -107,7 +108,7 @@ public class ObjectStorage {
                     .filter(object -> object.lastModified().isBefore(cutoff))
                     .map(S3Object::key)
                     .toList();
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot list objects under " + prefix, e);
         }
     }
@@ -118,7 +119,7 @@ public class ObjectStorage {
                     .bucket(properties.bucket())
                     .key(key)
                     .build()).asByteArray();
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot read object " + key, e);
         }
     }
@@ -129,7 +130,7 @@ public class ObjectStorage {
                     .bucket(properties.bucket())
                     .key(key)
                     .build());
-        } catch (S3Exception e) {
+        } catch (SdkException e) {
             throw new StorageException("Cannot delete object " + key, e);
         }
     }
