@@ -22,7 +22,9 @@ class TextFieldRow extends HorizontalLayout implements FieldRow {
 
         label.setPlaceholder(Translations.of("entry.field.label"));
         label.setWidth("34%");
+        label.getStyle().set("flex", "0 0 34%");
         value.setWidthFull();
+        value.getStyle().set("min-width", "0");
 
         if (field != null) {
             label.setValue(field.label());
@@ -31,6 +33,7 @@ class TextFieldRow extends HorizontalLayout implements FieldRow {
 
         Button remove = new Button(Translations.of("common.remove"), event -> onRemove.accept(this));
         remove.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        remove.getStyle().set("flex", "0 0 auto");
 
         add(label, value, remove);
         expand(value);

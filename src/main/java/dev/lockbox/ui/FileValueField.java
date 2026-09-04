@@ -164,8 +164,7 @@ class FileValueField extends HorizontalLayout {
         size.setText(Sizes.readable(currentSize()));
         chosen.add(size);
         if (isPreviewable()) {
-            Button preview = new Button(new Icon(isImage() ? VaadinIcon.PICTURE : VaadinIcon.FILE_TEXT),
-                    event -> preview());
+            Button preview = new Button(new Icon(previewIcon()), event -> preview());
             preview.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
             preview.setTooltipText(Translations.of("entry.file.preview"));
             preview.getStyle().set("flex", "0 0 auto");
@@ -193,6 +192,13 @@ class FileValueField extends HorizontalLayout {
         return download;
     }
 
+    private VaadinIcon previewIcon() {
+        if (isImage()) {
+            return VaadinIcon.PICTURE;
+        }
+        return isPdf() ? VaadinIcon.FILE_TEXT : VaadinIcon.LINES;
+    }
+
     private void preview() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle(currentName());
@@ -210,7 +216,8 @@ class FileValueField extends HorizontalLayout {
             IFrame frame = new IFrame(handler);
             frame.setWidthFull();
             frame.setHeight("70vh");
-            frame.getStyle().set("border", "0");
+            frame.getStyle().set("border", "0")
+                    .set("background", "light-dark(#ffffff, #1c1c1f)");
             dialog.add(frame);
         }
 
@@ -225,7 +232,16 @@ class FileValueField extends HorizontalLayout {
     }
 
     private boolean isPreviewable() {
-        return isImage() || "application/pdf".equals(contentType());
+        return isImage() || isPdf() || isPlainText();
+    }
+
+    private boolean isPdf() {
+        return "application/pdf".equals(contentType());
+    }
+
+    private boolean isPlainText() {
+        String type = contentType();
+        return type != null && (type.startsWith("text/") || "application/csv".equals(type));
     }
 
     private String contentType() {

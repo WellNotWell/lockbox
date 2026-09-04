@@ -120,9 +120,7 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
             public DownloadHandler previewStaged(StagedFile staged) {
                 return event -> {
                     event.inline(staged.fileName());
-                    if (staged.contentType() != null) {
-                        event.setContentType(staged.contentType());
-                    }
+                    event.setContentType(previewContentType(staged.contentType()));
                     event.setContentLength(staged.sizeBytes());
                     try (OutputStream out = event.getOutputStream()) {
                         vaultService.writeStagedFile(staged.stagingKey(), staged.fileKey(), out);
@@ -139,7 +137,9 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
                     } else {
                         event.setFileName(info.fileName());
                     }
-                    if (info.contentType() != null) {
+                    if (inline) {
+                        event.setContentType(previewContentType(info.contentType()));
+                    } else if (info.contentType() != null) {
                         event.setContentType(info.contentType());
                     }
                     event.setContentLength(info.sizeBytes());
@@ -150,6 +150,15 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
                 };
             }
         };
+    }
+
+    private static String previewContentType(String contentType) {
+        if (contentType == null) {
+            return "application/octet-stream";
+        }
+        return contentType.startsWith("text/") || "application/csv".equals(contentType)
+                ? "text/plain; charset=utf-8"
+                : contentType;
     }
 
     @Override
