@@ -3,6 +3,7 @@ package dev.lockbox.ui;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -22,13 +23,14 @@ class EntryDialog extends Dialog {
 
     private final Consumer<EntryDraft> onSave;
 
-    EntryDialog(DecryptedEntry existing, Consumer<EntryDraft> onSave, Runnable onDelete) {
+    EntryDialog(DecryptedEntry existing, AttachmentsPanel attachments,
+                Consumer<EntryDraft> onSave, Runnable onDelete) {
         this.onSave = onSave;
 
         setHeaderTitle(existing == null
                 ? Translations.of("entry.dialog.new")
                 : Translations.of("entry.dialog.edit"));
-        setWidth("520px");
+        setWidth("560px");
 
         title.setWidthFull();
         rows.setPadding(false);
@@ -40,6 +42,17 @@ class EntryDialog extends Dialog {
         VerticalLayout content = new VerticalLayout(title, rows, addField);
         content.setPadding(false);
         add(content);
+
+        if (attachments != null) {
+            attachments.getStyle().set("margin-top", "18px")
+                    .set("border-top", "1px solid var(--lumo-contrast-10pct)").set("padding-top", "14px");
+            add(attachments);
+        } else {
+            Span hint = new Span(Translations.of("attachments.saveFirst"));
+            hint.getStyle().set("color", "var(--lumo-secondary-text-color)")
+                    .set("font-size", "var(--lumo-font-size-s)").set("margin-top", "12px");
+            add(hint);
+        }
 
         if (existing == null) {
             addRow(null);

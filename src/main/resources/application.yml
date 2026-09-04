@@ -36,6 +36,13 @@ server:
 vaadin:
   launch-browser: false
 
+storage:
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  access-key: ${STORAGE_ACCESS_KEY:lockbox}
+  secret-key: ${STORAGE_SECRET_KEY:lockbox-secret}
+  bucket: ${STORAGE_BUCKET:lockbox}
+  max-attachment-size: 25MB
+
 lockbox:
   crypto:
     argon2-memory-kb: ${CRYPTO_MEMORY_KB:65536}

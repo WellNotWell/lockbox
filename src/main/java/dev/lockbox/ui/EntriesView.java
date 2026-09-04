@@ -9,6 +9,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 import dev.lockbox.security.CurrentUser;
+import dev.lockbox.storage.StorageProperties;
+import dev.lockbox.vault.AttachmentService;
+import dev.lockbox.vault.DecryptedEntry;
 import dev.lockbox.vault.Entry;
 import dev.lockbox.vault.VaultService;
 import jakarta.annotation.security.PermitAll;
@@ -24,13 +27,18 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
     private static final DateTimeFormatter UPDATED_AT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final VaultService vaultService;
+    private final AttachmentService attachmentService;
+    private final StorageProperties storageProperties;
     private final CurrentUser currentUser;
 
     private final Grid<Entry> grid = new Grid<>();
     private final Paragraph empty = new Paragraph();
 
-    public EntriesView(VaultService vaultService, CurrentUser currentUser) {
+    public EntriesView(VaultService vaultService, AttachmentService attachmentService,
+                       StorageProperties storageProperties, CurrentUser currentUser) {
         this.vaultService = vaultService;
+        this.attachmentService = attachmentService;
+        this.storageProperties = storageProperties;
         this.currentUser = currentUser;
 
         setSizeFull();
@@ -74,8 +82,18 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         openDialog(vaultService.open(currentUser.require(), currentUser.masterKey(), entry.getId()));
     }
 
-    private void openDialog(dev.lockbox.vault.DecryptedEntry existing) {
+    private AttachmentsPanel attachmentsOf(Long entryId) {
+        return new AttachmentsPanel(storageProperties.maxAttachmentSize().toBytes(),
+                () -> attachmentService.list(currentUser.require(), entryId),
+                file -> attachmentService.upload(currentUser.require(), currentUser.masterKey(), entryId, file),
+                attachment -> attachmentService.download(currentUser.require(), currentUser.masterKey(),
+                        attachment.getId()),
+                attachment -> attachmentService.delete(currentUser.require(), attachment.getId()));
+    }
+
+    private void openDialog(DecryptedEntry existing) {
         EntryDialog dialog = new EntryDialog(existing,
+                existing == null ? null : attachmentsOf(existing.id()),
                 draft -> {
                     if (existing == null) {
                         vaultService.create(currentUser.require(), currentUser.masterKey(),
