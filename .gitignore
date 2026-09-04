@@ -1,0 +1,39 @@
+### Maven ###
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### Vaadin ###
+node_modules/
+src/main/frontend/generated/
+frontend/generated/
+vite.generated.ts
+package.json
+package-lock.json
+tsconfig.json
+types.d.ts
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### macOS ###
+.DS_Store
+
+### Local ###
+.env
+*.log
+logs/
