@@ -25,6 +25,13 @@ server:
 vaadin:
   launch-browser: false
 
+lockbox:
+  crypto:
+    argon2-memory-kb: ${CRYPTO_MEMORY_KB:65536}
+    argon2-iterations: ${CRYPTO_ITERATIONS:3}
+    argon2-parallelism: ${CRYPTO_PARALLELISM:1}
+    salt-length: 16
+
 management:
   endpoints:
     web:
