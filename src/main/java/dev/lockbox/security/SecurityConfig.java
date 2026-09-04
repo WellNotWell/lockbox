@@ -17,6 +17,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private static final String HEALTH_ENDPOINT = "/actuator/health";
+    private static final String ACCENT_STYLES = "/styles/**";
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -32,7 +33,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(requests -> requests.requestMatchers(HEALTH_ENDPOINT).permitAll());
+        http.authorizeHttpRequests(requests -> requests.requestMatchers(HEALTH_ENDPOINT, ACCENT_STYLES).permitAll());
         return http.with(VaadinSecurityConfigurer.vaadin(),
                 configurer -> configurer.loginView(LoginView.class)).build();
     }
