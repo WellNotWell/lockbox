@@ -9,6 +9,7 @@ final class EntryFormValidator {
     static final String TITLE_EMPTY = "entry.error.titleEmpty";
     static final String NO_FIELDS = "entry.error.noFields";
     static final String LABEL_EMPTY = "entry.error.labelEmpty";
+    static final String FILE_MISSING = "entry.error.fileMissing";
 
     private EntryFormValidator() {
     }
@@ -24,16 +25,13 @@ final class EntryFormValidator {
         if (filled.stream().anyMatch(field -> field.label() == null || field.label().isBlank())) {
             return LABEL_EMPTY;
         }
+        if (filled.stream().anyMatch(field -> field.isFile() && !field.hasContent())) {
+            return FILE_MISSING;
+        }
         return null;
     }
 
     static List<NewField> usable(List<NewField> fields) {
-        return fields.stream()
-                .filter(field -> notBlank(field.label()) || notBlank(field.value()))
-                .toList();
-    }
-
-    private static boolean notBlank(String value) {
-        return value != null && !value.isBlank();
+        return fields.stream().filter(field -> !field.isEmpty()).toList();
     }
 }

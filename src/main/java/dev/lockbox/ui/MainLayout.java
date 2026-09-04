@@ -16,10 +16,10 @@ public class MainLayout extends AppLayout {
 
     public MainLayout(AuthenticationContext authenticationContext, CurrentUser currentUser) {
         H1 name = new H1(Translations.of("app.name"));
-        name.getStyle().set("font-size", "var(--lumo-font-size-l)").set("margin", "0");
+        name.getStyle().set("font-size", "var(--aura-font-size-l)").set("margin", "0");
 
         Span user = new Span(currentUser.name());
-        user.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        user.getStyle().set("color", "var(--vaadin-text-color-secondary)");
 
         Button signOut = new Button(Translations.of("common.signOut"), event -> Confirmations.ask(
                 "confirm.signOut.header",
@@ -33,7 +33,7 @@ public class MainLayout extends AppLayout {
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.expand(name);
-        header.getStyle().set("padding", "0 var(--lumo-space-m)");
+        header.getStyle().set("padding", "0 var(--vaadin-gap-m)");
 
         addToNavbar(header);
     }

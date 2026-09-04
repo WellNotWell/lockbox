@@ -32,7 +32,7 @@ class LanguageSwitcher extends HorizontalLayout {
             button.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         } else {
             button.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            button.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            button.getStyle().set("color", "var(--vaadin-text-color-secondary)");
         }
         button.addClickListener(event -> switchTo(locale));
         return button;

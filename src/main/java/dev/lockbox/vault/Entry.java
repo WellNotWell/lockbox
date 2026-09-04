@@ -18,6 +18,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Entity
@@ -61,13 +62,20 @@ public class Entry {
     }
 
     public void replaceFields(List<EntryField> newFields) {
-        fields.clear();
+        fields.removeIf(existing -> newFields.stream().noneMatch(kept -> kept == existing));
         for (int index = 0; index < newFields.size(); index++) {
             EntryField field = newFields.get(index);
             field.setEntry(this);
             field.setSortOrder(index);
-            fields.add(field);
+            if (fields.stream().noneMatch(existing -> existing == field)) {
+                fields.add(field);
+            }
         }
+        fields.sort(Comparator.comparingInt(EntryField::getSortOrder));
+    }
+
+    public List<String> storageKeys() {
+        return fields.stream().filter(EntryField::isFile).map(EntryField::getStorageKey).toList();
     }
 
     public Long getId() {

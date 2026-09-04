@@ -2,6 +2,8 @@ package dev.lockbox.vault;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -22,11 +24,26 @@ public class EntryField {
     @JoinColumn(name = "entry_id", nullable = false)
     private Entry entry;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 8)
+    private FieldKind kind = FieldKind.TEXT;
+
     @Column(nullable = false, length = 120)
     private String label;
 
-    @Column(nullable = false)
     private byte[] value;
+
+    @Column(name = "file_name", length = 255)
+    private String fileName;
+
+    @Column(name = "content_type", length = 120)
+    private String contentType;
+
+    @Column(name = "size_bytes")
+    private Long sizeBytes;
+
+    @Column(name = "storage_key", length = 200)
+    private String storageKey;
 
     @Column(nullable = false)
     private boolean secret;
@@ -44,6 +61,50 @@ public class EntryField {
 
     public void setEntry(Entry entry) {
         this.entry = entry;
+    }
+
+    public FieldKind getKind() {
+        return kind;
+    }
+
+    public void setKind(FieldKind kind) {
+        this.kind = kind;
+    }
+
+    public boolean isFile() {
+        return kind == FieldKind.FILE;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public Long getSizeBytes() {
+        return sizeBytes;
+    }
+
+    public void setSizeBytes(Long sizeBytes) {
+        this.sizeBytes = sizeBytes;
+    }
+
+    public String getStorageKey() {
+        return storageKey;
+    }
+
+    public void setStorageKey(String storageKey) {
+        this.storageKey = storageKey;
     }
 
     public String getLabel() {

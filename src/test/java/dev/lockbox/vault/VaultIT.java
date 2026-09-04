@@ -129,6 +129,6 @@ class VaultIT {
     }
 
     private List<NewField> fields() {
-        return List.of(new NewField("URL", "postgres://prod", false), new NewField("Password", SECRET, true));
+        return List.of(NewField.text("URL", "postgres://prod", false), NewField.text("Password", SECRET, true));
     }
 }

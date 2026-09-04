@@ -4,61 +4,78 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import dev.lockbox.vault.DecryptedEntry;
 import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.NewField;
+import dev.lockbox.vault.StoredFile;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 class EntryDialog extends Dialog {
 
     private final TextField title = new TextField(Translations.of("entry.title"));
     private final VerticalLayout rows = new VerticalLayout();
-    private final List<EntryFieldRow> fieldRows = new ArrayList<>();
+    private final List<FieldRow> fieldRows = new ArrayList<>();
 
+    private final long maxFileSize;
+    private final Function<Long, StoredFile> opener;
     private final Consumer<EntryDraft> onSave;
 
-    EntryDialog(DecryptedEntry existing, AttachmentsPanel attachments,
+    EntryDialog(DecryptedEntry existing, long maxFileSize, Function<Long, StoredFile> opener,
                 Consumer<EntryDraft> onSave, Runnable onDelete) {
+        this.maxFileSize = maxFileSize;
+        this.opener = opener;
         this.onSave = onSave;
 
         setHeaderTitle(existing == null
                 ? Translations.of("entry.dialog.new")
                 : Translations.of("entry.dialog.edit"));
-        setWidth("560px");
+        setWidth("620px");
 
         title.setWidthFull();
         rows.setPadding(false);
         rows.setSpacing(false);
+        rows.getStyle().set("gap", "var(--vaadin-gap-s)");
 
-        Button addField = new Button(Translations.of("entry.addField"), event -> addRow(null));
+        Button addField = new Button(Translations.of("entry.addField"), event -> addTextRow(null));
         addField.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
-        VerticalLayout content = new VerticalLayout(title, rows, addField);
+        Button addFile = new Button(Translations.of("entry.addFile"), new Icon(VaadinIcon.PAPERCLIP));
+        addFile.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        addFile.addClickListener(event -> addFileRow(null));
+
+        Span limit = new Span(Translations.of("entry.file.limit", Sizes.readable(maxFileSize)));
+        limit.getStyle().set("color", "var(--vaadin-text-color-secondary)")
+                .set("font-size", "var(--aura-font-size-s)").set("align-self", "center");
+
+        HorizontalLayout actions = new HorizontalLayout(addField, addFile, limit);
+        actions.setSpacing(true);
+        actions.setPadding(false);
+        actions.setAlignItems(HorizontalLayout.Alignment.CENTER);
+
+        VerticalLayout content = new VerticalLayout(title, rows, actions);
         content.setPadding(false);
         add(content);
 
-        if (attachments != null) {
-            attachments.getStyle().set("margin-top", "18px")
-                    .set("border-top", "1px solid var(--lumo-contrast-10pct)").set("padding-top", "14px");
-            add(attachments);
-        } else {
-            Span hint = new Span(Translations.of("attachments.saveFirst"));
-            hint.getStyle().set("color", "var(--lumo-secondary-text-color)")
-                    .set("font-size", "var(--lumo-font-size-s)").set("margin-top", "12px");
-            add(hint);
-        }
-
         if (existing == null) {
-            addRow(null);
+            addTextRow(null);
         } else {
             title.setValue(existing.title());
-            existing.fields().forEach(this::addRow);
+            existing.fields().forEach(field -> {
+                if (field.isFile()) {
+                    addFileRow(field);
+                } else {
+                    addTextRow(field);
+                }
+            });
         }
 
         Button save = new Button(Translations.of("common.save"), event -> save());
@@ -81,18 +98,27 @@ class EntryDialog extends Dialog {
         }
     }
 
-    private void addRow(DecryptedField field) {
-        EntryFieldRow row = new EntryFieldRow(field, removed -> {
-            fieldRows.remove(removed);
-            rows.remove(removed);
-        });
+    private void addTextRow(DecryptedField field) {
+        register(new TextFieldRow(field, this::remove));
+    }
+
+    private void addFileRow(DecryptedField field) {
+        register(new FileFieldRow(field, maxFileSize, opener, this::remove));
+    }
+
+    private void register(FieldRow row) {
         fieldRows.add(row);
-        rows.add(row);
+        rows.add(row.layout());
+    }
+
+    private void remove(FieldRow row) {
+        fieldRows.remove(row);
+        rows.remove(row.layout());
     }
 
     private void save() {
         title.setInvalid(false);
-        List<NewField> fields = fieldRows.stream().map(EntryFieldRow::toField).toList();
+        List<NewField> fields = fieldRows.stream().map(FieldRow::toField).toList();
 
         String error = EntryFormValidator.validate(title.getValue(), fields);
         if (error != null) {
@@ -102,37 +128,6 @@ class EntryDialog extends Dialog {
         }
         onSave.accept(new EntryDraft(title.getValue().trim(), EntryFormValidator.usable(fields)));
         close();
-    }
-
-    private static class EntryFieldRow extends HorizontalLayout {
-
-        private final TextField label = new TextField();
-        private final SecretValueField value = new SecretValueField();
-
-        EntryFieldRow(DecryptedField field, Consumer<EntryFieldRow> onRemove) {
-            setWidthFull();
-            setSpacing(true);
-            setPadding(false);
-
-            label.setPlaceholder(Translations.of("entry.field.label"));
-            label.setWidth("40%");
-            value.setWidthFull();
-
-            if (field != null) {
-                label.setValue(field.label());
-                value.setValue(field.value(), field.secret());
-            }
-
-            Button remove = new Button(Translations.of("common.remove"), event -> onRemove.accept(this));
-            remove.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-
-            add(label, value, remove);
-            expand(value);
-        }
-
-        NewField toField() {
-            return new NewField(label.getValue(), value.getValue(), value.isSecret());
-        }
     }
 
     record EntryDraft(String title, List<NewField> fields) {

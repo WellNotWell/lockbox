@@ -1,6 +1,7 @@
 package dev.lockbox.ui;
 
 import dev.lockbox.vault.NewField;
+import dev.lockbox.vault.StoredFile;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -10,8 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EntryFormValidatorTest {
 
-    private static final NewField HOST = new NewField("Host", "prod-db", false);
-    private static final NewField EMPTY = new NewField("", "", false);
+    private static final NewField HOST = NewField.text("Host", "prod-db", false);
+    private static final NewField EMPTY = NewField.text("", "", false);
 
     @Test
     @DisplayName("Entry with a title and a filled field is accepted")
@@ -37,7 +38,7 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("A value without a label is reported")
     void rejectsValueWithoutLabel() {
-        assertThat(EntryFormValidator.validate("Prod database", List.of(new NewField("", "secret", true))))
+        assertThat(EntryFormValidator.validate("Prod database", List.of(NewField.text("", "secret", true))))
                 .isEqualTo(EntryFormValidator.LABEL_EMPTY);
     }
 
@@ -50,9 +51,35 @@ class EntryFormValidatorTest {
     }
 
     @Test
+    @DisplayName("A file row that nobody filled in is dropped like an empty text row")
+    void dropsUntouchedFileRow() {
+        NewField untouched = NewField.uploadedFile("", null, false);
+
+        assertThat(EntryFormValidator.usable(List.of(HOST, untouched))).containsExactly(HOST);
+    }
+
+    @Test
+    @DisplayName("A named file row without a chosen file is reported")
+    void rejectsNamedFileRowWithoutFile() {
+        NewField named = NewField.uploadedFile("Passport", null, false);
+
+        assertThat(EntryFormValidator.validate("Documents", List.of(named)))
+                .isEqualTo(EntryFormValidator.FILE_MISSING);
+    }
+
+    @Test
+    @DisplayName("A file row with a chosen file passes")
+    void acceptsFileRow() {
+        NewField file = NewField.uploadedFile("Passport",
+                new StoredFile("passport.png", "image/png", new byte[]{1, 2, 3}), true);
+
+        assertThat(EntryFormValidator.validate("Documents", List.of(file))).isNull();
+    }
+
+    @Test
     @DisplayName("A field with a label but no value is kept, an empty note is still a note")
     void keepsLabelledFieldWithoutValue() {
-        NewField note = new NewField("Note", "", false);
+        NewField note = NewField.text("Note", "", false);
 
         assertThat(EntryFormValidator.usable(List.of(note))).containsExactly(note);
         assertThat(EntryFormValidator.validate("Prod database", List.of(note))).isNull();

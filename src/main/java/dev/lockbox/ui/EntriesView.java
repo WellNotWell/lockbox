@@ -9,10 +9,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 import dev.lockbox.security.CurrentUser;
-import dev.lockbox.storage.StorageProperties;
-import dev.lockbox.vault.AttachmentService;
 import dev.lockbox.vault.DecryptedEntry;
 import dev.lockbox.vault.Entry;
+import dev.lockbox.vault.StoredFile;
 import dev.lockbox.vault.VaultService;
 import jakarta.annotation.security.PermitAll;
 
@@ -27,18 +26,13 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
     private static final DateTimeFormatter UPDATED_AT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final VaultService vaultService;
-    private final AttachmentService attachmentService;
-    private final StorageProperties storageProperties;
     private final CurrentUser currentUser;
 
     private final Grid<Entry> grid = new Grid<>();
     private final Paragraph empty = new Paragraph();
 
-    public EntriesView(VaultService vaultService, AttachmentService attachmentService,
-                       StorageProperties storageProperties, CurrentUser currentUser) {
+    public EntriesView(VaultService vaultService, CurrentUser currentUser) {
         this.vaultService = vaultService;
-        this.attachmentService = attachmentService;
-        this.storageProperties = storageProperties;
         this.currentUser = currentUser;
 
         setSizeFull();
@@ -64,7 +58,7 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         grid.setSizeFull();
 
         empty.setText(Translations.of("entries.empty"));
-        empty.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        empty.getStyle().set("color", "var(--vaadin-text-color-secondary)");
 
         add(toolbar, empty, grid);
         expand(grid);
@@ -82,18 +76,10 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         openDialog(vaultService.open(currentUser.require(), currentUser.masterKey(), entry.getId()));
     }
 
-    private AttachmentsPanel attachmentsOf(Long entryId) {
-        return new AttachmentsPanel(storageProperties.maxAttachmentSize().toBytes(),
-                () -> attachmentService.list(currentUser.require(), entryId),
-                file -> attachmentService.upload(currentUser.require(), currentUser.masterKey(), entryId, file),
-                attachment -> attachmentService.download(currentUser.require(), currentUser.masterKey(),
-                        attachment.getId()),
-                attachment -> attachmentService.delete(currentUser.require(), attachment.getId()));
-    }
-
     private void openDialog(DecryptedEntry existing) {
         EntryDialog dialog = new EntryDialog(existing,
-                existing == null ? null : attachmentsOf(existing.id()),
+                vaultService.maxFileSizeBytes(),
+                fieldId -> openFile(existing, fieldId),
                 draft -> {
                     if (existing == null) {
                         vaultService.create(currentUser.require(), currentUser.masterKey(),
@@ -112,6 +98,10 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
                     }
                 });
         dialog.open();
+    }
+
+    private StoredFile openFile(DecryptedEntry existing, Long fieldId) {
+        return vaultService.openFile(currentUser.require(), currentUser.masterKey(), existing.id(), fieldId);
     }
 
     @Override
