@@ -39,6 +39,15 @@ jobs:
       - name: Package without tests
         run: ./mvnw -B package -DskipTests -Dcheckstyle.skip=true
 
+  image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t lockbox:ci .
+
   test:
     name: Unit tests
     needs: build
