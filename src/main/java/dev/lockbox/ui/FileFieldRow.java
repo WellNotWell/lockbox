@@ -15,7 +15,7 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
 
     private final TextField label = new TextField();
     private final FileValueField value;
-    private final Button toggle = new Button(new Icon(VaadinIcon.EYE_SLASH));
+    private final Button toggle = new Button(new Icon(VaadinIcon.UNLOCK));
 
     private boolean secret;
 
@@ -53,8 +53,8 @@ class FileFieldRow extends HorizontalLayout implements FieldRow {
 
     private void setSecret(boolean isSecret) {
         secret = isSecret;
-        toggle.setIcon(new Icon(isSecret ? VaadinIcon.EYE : VaadinIcon.EYE_SLASH));
-        toggle.setTooltipText(Translations.of(isSecret ? "entry.field.isSecret" : "entry.field.markSecret"));
+        toggle.setIcon(new Icon(isSecret ? VaadinIcon.LOCK : VaadinIcon.UNLOCK));
+        toggle.setTooltipText(Translations.of(isSecret ? "entry.field.alwaysShow" : "entry.field.alwaysHide"));
         value.setSecret(isSecret);
     }
 

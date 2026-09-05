@@ -12,7 +12,7 @@ class SecretValueField extends HorizontalLayout {
 
     private final TextField plain = new TextField();
     private final PasswordField masked = new PasswordField();
-    private final Button toggle = new Button(new Icon(VaadinIcon.EYE_SLASH));
+    private final Button toggle = new Button(new Icon(VaadinIcon.UNLOCK));
 
     private boolean secret;
 
@@ -29,7 +29,7 @@ class SecretValueField extends HorizontalLayout {
         masked.setVisible(false);
 
         toggle.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        toggle.setTooltipText(Translations.of("entry.field.markSecret"));
+        toggle.setTooltipText(Translations.of("entry.field.alwaysHide"));
         toggle.addClickListener(event -> setSecret(!secret));
 
         add(plain, masked, toggle);
@@ -57,8 +57,8 @@ class SecretValueField extends HorizontalLayout {
         masked.setVisible(isSecret);
         plain.setValue(current);
         masked.setValue(current);
-        toggle.setIcon(new Icon(isSecret ? VaadinIcon.EYE : VaadinIcon.EYE_SLASH));
-        toggle.setTooltipText(Translations.of(isSecret ? "entry.field.isSecret" : "entry.field.markSecret"));
+        toggle.setIcon(new Icon(isSecret ? VaadinIcon.LOCK : VaadinIcon.UNLOCK));
+        toggle.setTooltipText(Translations.of(isSecret ? "entry.field.alwaysShow" : "entry.field.alwaysHide"));
         expand(isSecret ? masked : plain);
     }
 }
