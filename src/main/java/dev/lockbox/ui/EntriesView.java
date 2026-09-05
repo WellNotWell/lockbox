@@ -3,11 +3,16 @@ package dev.lockbox.ui;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
+import dev.lockbox.backup.BackupService;
 import dev.lockbox.security.CurrentUser;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import dev.lockbox.vault.DecryptedEntry;
@@ -29,13 +34,16 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
     private static final DateTimeFormatter UPDATED_AT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final VaultService vaultService;
+    private final BackupService backupService;
     private final CurrentUser currentUser;
 
     private final Grid<Entry> grid = new Grid<>();
     private final Paragraph empty = new Paragraph();
+    private final TextField search = new TextField();
 
-    public EntriesView(VaultService vaultService, CurrentUser currentUser) {
+    public EntriesView(VaultService vaultService, BackupService backupService, CurrentUser currentUser) {
         this.vaultService = vaultService;
+        this.backupService = backupService;
         this.currentUser = currentUser;
 
         setSizeFull();
@@ -44,8 +52,20 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         Button create = new Button(Translations.of("entries.new"), event -> openDialog(null));
         create.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        HorizontalLayout toolbar = new HorizontalLayout(create);
+        search.setPlaceholder(Translations.of("entries.search"));
+        search.setClearButtonVisible(true);
+        search.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
+        search.setValueChangeMode(ValueChangeMode.LAZY);
+        search.setWidth("320px");
+        search.addValueChangeListener(event -> refresh());
+
+        Button backup = new Button(Translations.of("backup.dialog"), new Icon(VaadinIcon.DOWNLOAD_ALT));
+        backup.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        backup.addClickListener(event -> new BackupDialog(backupService, currentUser, this::refresh).open());
+
+        HorizontalLayout toolbar = new HorizontalLayout(create, search, backup);
         toolbar.setWidthFull();
+        toolbar.setAlignItems(HorizontalLayout.Alignment.CENTER);
 
         grid.addColumn(Entry::getTitle).setHeader(Translations.of("entry.title")).setAutoWidth(true).setFlexGrow(1);
         grid.addColumn(entry -> UPDATED_AT.format(entry.getUpdatedAt().atZone(ZoneId.systemDefault())))
@@ -60,7 +80,6 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
         });
         grid.setSizeFull();
 
-        empty.setText(Translations.of("entries.empty"));
         empty.getStyle().set("color", "var(--vaadin-text-color-secondary)");
 
         add(toolbar, empty, grid);
@@ -69,9 +88,10 @@ public class EntriesView extends VerticalLayout implements HasDynamicTitle {
     }
 
     private void refresh() {
-        List<Entry> entries = vaultService.list(currentUser.require());
+        List<Entry> entries = vaultService.search(currentUser.require(), search.getValue());
         grid.setItems(entries);
         grid.setVisible(!entries.isEmpty());
+        empty.setText(Translations.of(search.isEmpty() ? "entries.empty" : "entries.nothingFound"));
         empty.setVisible(entries.isEmpty());
     }
 

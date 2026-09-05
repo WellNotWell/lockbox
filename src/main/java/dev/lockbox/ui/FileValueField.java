@@ -13,7 +13,6 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.server.streams.DownloadHandler;
-import com.vaadin.flow.component.upload.UploadI18N;
 import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.FileInfo;
 import dev.lockbox.vault.StagedFile;
@@ -99,7 +98,8 @@ class FileValueField extends HorizontalLayout {
         component.setMaxFiles(1);
         component.setMaxFileSize((int) maxFileSize);
         component.setWidthFull();
-        component.setI18n(uploadTranslations());
+        Uploads.translate(component, "entry.file.choose", "entry.file.drop",
+                Translations.of("entry.file.tooBig", Sizes.readable(maxFileSize)));
         component.setReceiver((fileName, mimeType) -> {
             stagingKey = access.newStagingKey();
             activeUpload = access.openStaging(stagingKey);
@@ -126,20 +126,6 @@ class FileValueField extends HorizontalLayout {
             activeUpload = null;
         }
         stagingKey = null;
-    }
-
-    private UploadI18N uploadTranslations() {
-        return new UploadI18N()
-                .setAddFiles(new UploadI18N.AddFiles()
-                        .setOne(Translations.of("entry.file.choose"))
-                        .setMany(Translations.of("entry.file.choose")))
-                .setDropFiles(new UploadI18N.DropFiles()
-                        .setOne(Translations.of("entry.file.drop"))
-                        .setMany(Translations.of("entry.file.drop")))
-                .setError(new UploadI18N.Error()
-                        .setFileIsTooBig(Translations.of("entry.file.tooBig", Sizes.readable(maxFileSize)))
-                        .setIncorrectFileType(Translations.of("entry.file.wrongType"))
-                        .setTooManyFiles(Translations.of("entry.file.tooMany")));
     }
 
     private void render() {

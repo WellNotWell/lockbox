@@ -83,6 +83,14 @@ public class VaultService {
     }
 
     @Transactional(readOnly = true)
+    public List<Entry> search(User owner, String query) {
+        if (query == null || query.isBlank()) {
+            return list(owner);
+        }
+        return entryRepository.search(owner.getId(), "%" + query.trim().toLowerCase() + "%");
+    }
+
+    @Transactional(readOnly = true)
     public DecryptedEntry open(User owner, SecretKey masterKey, Long entryId) {
         Entry entry = require(owner, entryId);
         SecretKey dataKey = keyEnvelope.unwrap(entry.getDataKey(), masterKey);

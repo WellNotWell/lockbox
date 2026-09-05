@@ -9,17 +9,24 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import dev.lockbox.security.CurrentUser;
+import dev.lockbox.security.MasterKeyStore;
+import dev.lockbox.user.MasterPasswordService;
 import jakarta.annotation.security.PermitAll;
 
 @PermitAll
 public class MainLayout extends AppLayout {
 
-    public MainLayout(AuthenticationContext authenticationContext, CurrentUser currentUser) {
+    public MainLayout(AuthenticationContext authenticationContext, CurrentUser currentUser,
+                      MasterPasswordService masterPasswordService, MasterKeyStore masterKeyStore) {
         H1 name = new H1(Translations.of("app.name"));
         name.getStyle().set("font-size", "var(--aura-font-size-l)").set("margin", "0");
 
         Span user = new Span(currentUser.name());
         user.getStyle().set("color", "var(--vaadin-text-color-secondary)");
+
+        Button changePassword = new Button(Translations.of("password.dialog"), event ->
+                new PasswordChangeDialog(currentUser::require, masterPasswordService, masterKeyStore).open());
+        changePassword.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         Button signOut = new Button(Translations.of("common.signOut"), event -> Confirmations.ask(
                 "confirm.signOut.header",
@@ -29,7 +36,7 @@ public class MainLayout extends AppLayout {
                 authenticationContext::logout));
         signOut.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
-        HorizontalLayout header = new HorizontalLayout(name, user, new LanguageSwitcher(), signOut);
+        HorizontalLayout header = new HorizontalLayout(name, user, new LanguageSwitcher(), changePassword, signOut);
         header.setWidthFull();
         header.setAlignItems(FlexComponent.Alignment.CENTER);
         header.expand(name);
