@@ -7,7 +7,6 @@ import dev.lockbox.vault.DecryptedField;
 import dev.lockbox.vault.Entry;
 import dev.lockbox.vault.NewField;
 import dev.lockbox.vault.VaultService;
-import dev.lockbox.user.PasswordAlreadyUsedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

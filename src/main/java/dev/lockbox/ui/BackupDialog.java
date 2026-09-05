@@ -11,15 +11,13 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.server.streams.DownloadHandler;
-import dev.lockbox.backup.BackupFormatException;
+import com.vaadin.flow.server.streams.UploadHandler;
 import dev.lockbox.backup.BackupService;
 import dev.lockbox.crypto.DecryptionException;
 import dev.lockbox.security.CurrentUser;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.time.LocalDate;
 
@@ -28,6 +26,8 @@ class BackupDialog extends Dialog {
     private final PasswordField exportPassword = new PasswordField(Translations.of("backup.newPassword"));
     private final PasswordField exportConfirmation = new PasswordField(Translations.of("backup.newPassword.repeat"));
     private final PasswordField restorePassword = new PasswordField(Translations.of("backup.archivePassword"));
+
+    private byte[] uploaded;
 
     BackupDialog(BackupService backupService, CurrentUser currentUser, Runnable onRestored) {
         setHeaderTitle(Translations.of("backup.dialog"));
@@ -54,15 +54,20 @@ class BackupDialog extends Dialog {
         exportPassword.addValueChangeListener(event -> updateDownload(download, hint));
         exportConfirmation.addValueChangeListener(event -> updateDownload(download, hint));
 
-        MemoryBuffer buffer = new MemoryBuffer();
-        Upload upload = new Upload(buffer);
+        Upload upload = new Upload();
         upload.setMaxFiles(1);
         upload.setWidthFull();
         Uploads.translate(upload, "backup.upload.choose", "backup.upload.drop",
                 Translations.of("upload.tooMany"));
-        upload.addSucceededListener(event -> restore(backupService, currentUser,
-                ((ByteArrayOutputStream) buffer.getFileData().getOutputBuffer()).toByteArray(),
-                upload, onRestored));
+        upload.setUploadHandler(UploadHandler.inMemory((metadata, data) -> uploaded = data));
+        upload.addAllFinishedListener(event -> {
+            if (uploaded == null) {
+                return;
+            }
+            byte[] archive = uploaded;
+            uploaded = null;
+            restore(backupService, currentUser, archive, upload, onRestored);
+        });
 
         VerticalLayout content = new VerticalLayout(
                 section("backup.export", "backup.about"),

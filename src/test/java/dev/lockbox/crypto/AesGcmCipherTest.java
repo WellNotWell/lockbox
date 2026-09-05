@@ -80,7 +80,8 @@ class AesGcmCipherTest {
         byte[] payload = cipher.encrypt(SECRET, key);
 
         assertThat(payload).hasSize(AesGcmCipher.IV_LENGTH + SECRET.length + AesGcmCipher.TAG_LENGTH_BITS / 8);
-        assertThat(Arrays.copyOfRange(payload, 0, AesGcmCipher.IV_LENGTH)).isNotEqualTo(new byte[AesGcmCipher.IV_LENGTH]);
+        assertThat(Arrays.copyOfRange(payload, 0, AesGcmCipher.IV_LENGTH))
+                .isNotEqualTo(new byte[AesGcmCipher.IV_LENGTH]);
     }
 
     @Test

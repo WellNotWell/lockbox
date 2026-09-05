@@ -90,7 +90,8 @@ class BackupServiceIT {
         User restoredInto = newUser();
         SecretKey restoredKey = keyOf(restoredInto, PASSWORD);
 
-        int count = backupService.restore(restoredInto, restoredKey, ARCHIVE_PASSWORD, new ByteArrayInputStream(archive));
+        int count = backupService.restore(restoredInto, restoredKey, ARCHIVE_PASSWORD,
+                new ByteArrayInputStream(archive));
 
         assertThat(count).isEqualTo(1);
         Entry entry = vaultService.list(restoredInto).getFirst();

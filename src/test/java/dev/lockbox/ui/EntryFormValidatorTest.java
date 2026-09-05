@@ -69,7 +69,8 @@ class EntryFormValidatorTest {
     @Test
     @DisplayName("A value without a label is reported")
     void rejectsValueWithoutLabel() {
-        assertThat(EntryFormValidator.validate("Prod database", List.of(NewField.text("", "secret", true))).messageKey())
+        assertThat(EntryFormValidator.validate("Prod database",
+                List.of(NewField.text("", "secret", true))).messageKey())
                 .isEqualTo(EntryFormValidator.LABEL_EMPTY);
     }
 

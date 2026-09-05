@@ -18,7 +18,10 @@ import dev.lockbox.vault.FileInfo;
 import dev.lockbox.vault.StagedFile;
 import dev.lockbox.vault.VaultService;
 
-import javax.crypto.SecretKey;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 
 class FileValueField extends HorizontalLayout {
 
@@ -34,9 +37,7 @@ class FileValueField extends HorizontalLayout {
     private Long fieldId;
     private FileInfo info;
     private StagedFile staged;
-    private VaultService.StagingSession activeUpload;
-    private SecretKey fileKey;
-    private String stagingKey;
+    private StagedFile pending;
     private boolean secret;
     private boolean revealed;
 
@@ -100,32 +101,33 @@ class FileValueField extends HorizontalLayout {
         component.setWidthFull();
         Uploads.translate(component, "entry.file.choose", "entry.file.drop",
                 Translations.of("entry.file.tooBig", Sizes.readable(maxFileSize)));
-        component.setReceiver((fileName, mimeType) -> {
-            stagingKey = access.newStagingKey();
-            activeUpload = access.openStaging(stagingKey);
-            fileKey = activeUpload.fileKey();
-            return activeUpload.upload().stream();
+
+        component.setUploadHandler(event -> {
+            String key = access.newStagingKey();
+            VaultService.StagingSession session = access.openStaging(key);
+            try (InputStream in = event.getInputStream(); OutputStream out = session.upload().stream()) {
+                in.transferTo(out);
+            } catch (IOException | RuntimeException e) {
+                session.upload().abort();
+                throw e;
+            }
+            pending = new StagedFile(key, event.getFileName(), event.getContentType(),
+                    event.getFileSize(), session.fileKey());
         });
-        component.addSucceededListener(event -> {
-            staged = new StagedFile(stagingKey, event.getFileName(), event.getMIMEType(),
-                    event.getContentLength(), fileKey);
-            activeUpload = null;
+
+        component.addAllFinishedListener(event -> {
+            if (pending == null) {
+                return;
+            }
+            staged = pending;
+            pending = null;
             component.clearFileList();
             component.setVisible(false);
             chosen.setVisible(true);
             render();
         });
-        component.addFailedListener(event -> discardUpload());
-        component.addFileRejectedListener(event -> discardUpload());
+        component.addFileRejectedListener(event -> pending = null);
         return component;
-    }
-
-    private void discardUpload() {
-        if (activeUpload != null) {
-            activeUpload.upload().abort();
-            activeUpload = null;
-        }
-        stagingKey = null;
     }
 
     private void render() {
